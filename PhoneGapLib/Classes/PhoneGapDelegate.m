@@ -19,11 +19,11 @@
     if (self != nil) {
         commandObjects = [[NSMutableDictionary alloc] initWithCapacity:4];
     }
-    return self; 
+    return self;
 }
 
 + (NSString*) applicationDocumentsDirectory {
-	
+
     NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
     NSString *basePath = ([paths count] > 0) ? [paths objectAtIndex:0] : nil;
     return basePath;
@@ -41,7 +41,7 @@
     NSMutableArray *directoryParts = [NSMutableArray arrayWithArray:[resourcepath componentsSeparatedByString:@"/"]];
     NSString       *filename       = [directoryParts lastObject];
     [directoryParts removeLastObject];
-	
+
     NSString *directoryStr = [NSString stringWithFormat:@"%@/%@", [self wwwFolderName], [directoryParts componentsJoinedByString:@"/"]];
     return [mainBundle pathForResource:filename
 					   ofType:@""
@@ -80,7 +80,7 @@ static NSString *gapVersion;
             obj = [[NSClassFromString(className) alloc] initWithWebView:webView settings:classSettings];
         else
             obj = [[NSClassFromString(className) alloc] initWithWebView:webView];
-        
+
         [commandObjects setObject:obj forKey:className];
 		[obj release];
     }
@@ -90,13 +90,13 @@ static NSString *gapVersion;
 - (NSArray*) parseInterfaceOrientations:(NSArray*)orientations
 {
 	NSMutableArray* result = [[[NSMutableArray alloc] init] autorelease];
-	
-	if (orientations != nil) 
+
+	if (orientations != nil)
 	{
 		NSEnumerator* enumerator = [orientations objectEnumerator];
 		NSString* orientationString;
-		
-		while (orientationString = [enumerator nextObject]) 
+
+		while (orientationString = [enumerator nextObject])
 		{
 			if ([orientationString isEqualToString:@"UIInterfaceOrientationPortrait"]) {
 				[result addObject:[NSNumber numberWithInt:UIInterfaceOrientationPortrait]];
@@ -109,12 +109,12 @@ static NSString *gapVersion;
 			}
 		}
 	}
-	
+
 	// default
 	if ([result count] == 0) {
 		[result addObject:[NSNumber numberWithInt:UIInterfaceOrientationPortrait]];
 	}
-	
+
 	return result;
 }
 
@@ -122,38 +122,41 @@ static NSString *gapVersion;
  * This is main kick off after the app inits, the views and Settings are setup here.
  */
 - (void)applicationDidFinishLaunching:(UIApplication *)application
-{	
+{
 	// read from UISupportedInterfaceOrientations (or UISupportedInterfaceOrientations~iPad, if its iPad) from -Info.plist
 	NSArray* supportedOrientations = [self parseInterfaceOrientations:
 											   [[[NSBundle mainBundle] infoDictionary] objectForKey:@"UISupportedInterfaceOrientations"]];
     // read from PhoneGap.plist in the app bundle
 	NSDictionary *temp = [PhoneGapDelegate getBundlePlist:@"PhoneGap"];
     settings = [[NSDictionary alloc] initWithDictionary:temp];
-	
+
 	viewController = [ [ PhoneGapViewController alloc ] init ];
-	
+
 #if __IPHONE_OS_VERSION_MIN_REQUIRED < 30000
     NSNumber *detectNumber         = [settings objectForKey:@"DetectPhoneNumber"];
 #endif
     NSNumber *useLocation          = [settings objectForKey:@"UseLocation"];
     NSString *topActivityIndicator = [settings objectForKey:@"TopActivityIndicator"];
-	
-	
+
+
 	// The first item in the supportedOrientations array is the start orientation (guaranteed to be at least Portrait)
 	[[UIApplication sharedApplication] setStatusBarOrientation:[[supportedOrientations objectAtIndex:0] intValue]];
-	
+
 	// Set the supported orientations for rotation. If number of items in the array is > 1, autorotate is supported
     viewController.supportedOrientations = supportedOrientations;
-	
+
 	CGRect screenBounds = [ [ UIScreen mainScreen ] bounds ];
 	self.window = [ [ [ UIWindow alloc ] initWithFrame:screenBounds ] autorelease ];
-	
-	webView = [ [ UIWebView alloc ] initWithFrame:screenBounds ];
+
+	CGRect availRect = [ [ UIScreen mainScreen ] applicationFrame ]; // takes the status bar into account
+	availRect.origin.x = availRect.origin.y = 0;
+	webView = [ [ UIWebView alloc ] initWithFrame:availRect ];
+
     [webView setAutoresizingMask: (UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight) ];
-	
+
 	viewController.webView = webView;
 	[viewController.view addSubview:webView];
-		
+
 	/*
 	 * Fire up the GPS Service right away as it takes a moment for data to come back.
 	 */
@@ -184,7 +187,7 @@ static NSString *gapVersion;
 	UIImage* image = [[UIImage alloc] initWithContentsOfFile:[[NSBundle mainBundle] pathForResource:@"Default" ofType:@"png"]];
 	imageView = [[UIImageView alloc] initWithImage:image];
 	[image release];
-	
+
     imageView.tag = 1;
 	[window addSubview:imageView];
 	[imageView release];
@@ -217,7 +220,7 @@ static NSString *gapVersion;
  When web application loads Add stuff to the DOM, mainly the user-defined settings from the Settings.plist file, and
  the device's data such as device ID, platform version, etc.
  */
-- (void)webViewDidStartLoad:(UIWebView *)theWebView 
+- (void)webViewDidStartLoad:(UIWebView *)theWebView
 {
 	// Play any default movie
 	NSLog(@"Going to play default movie");
@@ -230,15 +233,15 @@ static NSString *gapVersion;
 
     // Determine the URL used to invoke this application.
     // Described in http://iphonedevelopertips.com/cocoa/launching-your-own-application-via-a-custom-url-scheme.html
-	
+
  	if ([[invokedURL scheme] isEqualToString:[self appURLScheme]]) {
 		InvokedUrlCommand* iuc = [[InvokedUrlCommand newFromUrl:invokedURL] autorelease];
-    
+
 		NSLog(@"Arguments: %@", iuc.arguments);
 		NSString *optionsString = [[NSString alloc] initWithFormat:@"var Invoke_params=%@;", [iuc.options JSONFragment]];
-	 
+
 		[webView stringByEvaluatingJavaScriptFromString:optionsString];
-		
+
 		[optionsString release];
     }
 }
@@ -252,7 +255,7 @@ static NSString *gapVersion;
     [devProps setObject:[device uniqueIdentifier] forKey:@"uuid"];
     [devProps setObject:[device name] forKey:@"name"];
     [devProps setObject:[PhoneGapDelegate phoneGapVersion ] forKey:@"gap"];
-	
+
     NSDictionary *devReturn = [NSDictionary dictionaryWithDictionary:devProps];
     return devReturn;
 }
@@ -273,18 +276,18 @@ static NSString *gapVersion;
 	// </array>
 
 	NSString* URLScheme = nil;
-	
+
     NSArray *URLTypes = [[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleURLTypes"];
     if(URLTypes != nil ) {
 		NSDictionary* dict = [URLTypes objectAtIndex:0];
 		if(dict != nil ) {
 			NSArray* URLSchemes = [dict objectForKey:@"CFBundleURLSchemes"];
-			if( URLSchemes != nil ) {    
+			if( URLSchemes != nil ) {
 				URLScheme = [URLSchemes objectAtIndex:0];
 			}
 		}
 	}
-	
+
 	return URLScheme;
 }
 
@@ -309,7 +312,7 @@ static NSString *gapVersion;
     NSData *plistXML = [[NSFileManager defaultManager] contentsAtPath:plistPath];
     NSDictionary *temp = (NSDictionary *)[NSPropertyListSerialization
                                           propertyListFromData:plistXML
-                                          mutabilityOption:NSPropertyListMutableContainersAndLeaves			  
+                                          mutabilityOption:NSPropertyListMutableContainersAndLeaves
                                           format:&format errorDescription:&errorDesc];
     return temp;
 }
@@ -321,32 +324,32 @@ static NSString *gapVersion;
 	/*
 	 * Hide the Top Activity THROBER in the Battery Bar
 	 */
-	
+
     NSDictionary *deviceProperties = [ self deviceProperties];
     NSMutableString *result = [[NSMutableString alloc] initWithFormat:@"DeviceInfo = %@;", [deviceProperties JSONFragment]];
-    
+
     /* Settings.plist
 	 * Read the optional Settings.plist file and push these user-defined settings down into the web application.
 	 * This can be useful for supplying build-time configuration variables down to the app to change its behaviour,
      * such as specifying Full / Lite version, or localization (English vs German, for instance).
 	 */
-	
+
     NSDictionary *temp = [PhoneGapDelegate getBundlePlist:@"Settings"];
     if ([temp respondsToSelector:@selector(JSONFragment)]) {
         [result appendFormat:@"\nwindow.Settings = %@;", [temp JSONFragment]];
     }
-	
+
     NSLog(@"Device initialization: %@", result);
     [theWebView stringByEvaluatingJavaScriptFromString:result];
 	[result release];
-	
+
 	[[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
-	activityView.hidden = YES;	
+	activityView.hidden = YES;
 
 	imageView.hidden = YES;
-	
+
 	[window bringSubviewToFront:viewController.view];
-	webView = theWebView; 	
+	webView = theWebView;
 }
 
 
@@ -380,18 +383,18 @@ static NSString *gapVersion;
      * We have to strip off the leading slash for the options.
      */
      if ([[url scheme] isEqualToString:@"gap"]) {
-		 
+
 		InvokedUrlCommand* iuc = [[InvokedUrlCommand newFromUrl:url] autorelease];
-        
+
 		// Tell the JS code that we've gotten this command, and we're ready for another
         [theWebView stringByEvaluatingJavaScriptFromString:@"PhoneGap.queue.ready = true;"];
-		
+
 		// Check to see if we are provided a class:method style command.
 		[self execute:iuc];
 
 		 return NO;
 	}
-    
+
     /*
      * If a URL is being loaded that's a local file URL, just load it internally
      */
@@ -400,7 +403,7 @@ static NSString *gapVersion;
         //NSLog(@"File URL %@", [url description]);
         return YES;
     }
-    
+
     /*
      * We don't have a PhoneGap or local file request, load it in the main Safari browser.
      */
@@ -410,7 +413,7 @@ static NSString *gapVersion;
         [[UIApplication sharedApplication] openURL:url];
         return NO;
 	}
-	
+
 	return YES;
 }
 
@@ -419,10 +422,10 @@ static NSString *gapVersion;
 	if (command.className == nil || command.methodName == nil) {
 		return NO;
 	}
-	
+
 	// Fetch an instance of this class
 	PhoneGapCommand* obj = [self getCommandInstance:command.className];
-	
+
 	// construct the fill method name to ammend the second argument.
 	NSString* fullMethodName = [[NSString alloc] initWithFormat:@"%@:withDict:", command.methodName];
 	if ([obj respondsToSelector:NSSelectorFromString(fullMethodName)]) {
@@ -434,7 +437,7 @@ static NSString *gapVersion;
 		[NSException raise:NSInternalInconsistencyException format:@"Class method '%@' not defined against class '%@'.", fullMethodName, command.className];
 	}
 	[fullMethodName release];
-	
+
 	return YES;
 }
 
@@ -443,10 +446,10 @@ static NSString *gapVersion;
 {
 	NSLog(@"In handleOpenURL");
 	if (!url) { return NO; }
-	
+
 	NSLog(@"URL = %@", [url absoluteURL]);
 	invokedURL = url;
-	
+
 	return YES;
 }
 
@@ -458,7 +461,7 @@ static NSString *gapVersion;
     [activityView release];
 	[window release];
 	[invokedURL release];
-	
+
 	[super dealloc];
 }
 
